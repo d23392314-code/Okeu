@@ -56,10 +56,20 @@ jobs:
             --output-dir build \
             "$SKETCH_DIR"
 
+      - name: Gabung jadi satu file (merged.bin)
+        run: |
+          pip install esptool==4.8.1
+          BOOT_APP0="$HOME/.arduino15/packages/esp32/hardware/esp32/2.0.17/tools/partitions/boot_app0.bin"
+          esptool.py --chip esp32 merge_bin \
+            -o build/dewzx_terminal.merged.bin \
+            --flash_mode dio --flash_freq 40m --flash_size 4MB \
+            0x1000 build/dewzx_terminal.ino.bootloader.bin \
+            0x8000 build/dewzx_terminal.ino.partitions.bin \
+            0xe000 "$BOOT_APP0" \
+            0x10000 build/dewzx_terminal.ino.bin
+
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
           name: dewzx-terminal-esp32
-          path: |
-            build/*.bin
-            build/*.elf
+          path: build/dewzx_terminal.merged.bin
