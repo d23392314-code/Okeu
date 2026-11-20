@@ -1,0 +1,65 @@
+name: Build ESP32 Firmware
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  ESP32_INDEX: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+  SKETCH_DIR: dewzx_terminal
+  # Konfigurasi TFT_eSPI (ST7789 240x240) lewat build flag,
+  # jadi tidak perlu edit User_Setup.h
+  TFT_FLAGS: >-
+    -DUSER_SETUP_LOADED=1
+    -DST7789_DRIVER=1
+    -DTFT_WIDTH=240
+    -DTFT_HEIGHT=240
+    -DTFT_INVERSION_ON=1
+    -DTFT_MISO=-1
+    -DTFT_MOSI=23
+    -DTFT_SCLK=18
+    -DTFT_CS=-1
+    -DTFT_DC=16
+    -DTFT_RST=17
+    -DLOAD_GLCD=1
+    -DLOAD_FONT2=1
+    -DLOAD_FONT4=1
+    -DSMOOTH_FONT=0
+    -DSPI_FREQUENCY=40000000
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: arduino/setup-arduino-cli@v2
+
+      - name: Install core ESP32
+        run: |
+          arduino-cli core update-index --additional-urls "$ESP32_INDEX"
+          arduino-cli core install esp32:esp32@2.0.17 --additional-urls "$ESP32_INDEX"
+
+      - name: Install library
+        run: |
+          arduino-cli lib install "TFT_eSPI@2.5.43"
+          arduino-cli lib install "NimBLE-Arduino@1.4.3"
+          arduino-cli lib install "ArduinoJson@7.2.1"
+
+      - name: Compile
+        run: |
+          arduino-cli compile \
+            --fqbn esp32:esp32:esp32 \
+            --build-property "compiler.cpp.extra_flags=$TFT_FLAGS" \
+            --build-property "compiler.c.extra_flags=$TFT_FLAGS" \
+            --output-dir build \
+            "$SKETCH_DIR"
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: dewzx-terminal-esp32
+          path: |
+            build/*.bin
+            build/*.elf
